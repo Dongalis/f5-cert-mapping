@@ -21,8 +21,8 @@ function get_certs() {
             SAN="N/A"
           else
             CARTSTRING=`tmsh list sys file ssl-cert recursive one-line | grep "ssl-cert ${CERT}"`
-            EXPIRATION=`grep -oh 'expiration-string .*GMT' <<<"$CARTSTRING" | cut -c 20-`
-            SAN=`grep -oP '(?<=subject-alternative-name \").*?(?=\")' <<<"$CARTSTRING"`
+            EXPIRATION=`grep -oh 'expiration-string .*GMT' <<<"$CARTSTRING" | cut -c 20-` #Expiration date of certificate
+            SAN=`grep -oP '(?<=subject-alternative-name \").*?(?=\")' <<<"$CARTSTRING"` #Subject Alternative Name of certificate
           fi
           VIP=`tmsh list ltm virtual ${VAL} | grep destination | awk '{print $2}'`
           echo "${SC}${VAL}${SP}${PCRT}${SP}${CERT}${SP}${CIPHERS}${SP}${VIP}${SP}${EXPIRATION}${SP}${SAN}${SC}"
