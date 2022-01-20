@@ -3,7 +3,7 @@
 
 function get_certs() {
 
-  LIST=`find /config -name bigip.conf |  xargs  awk '$2 == "virtual" {print $3}' 2> /dev/null | sort -u`
+  LIST=`find /config -name bigip.conf -type f |  xargs  awk '$2 == "virtual" {print $3}' 2> /dev/null | sort -u`
   VIRTS=0
   for VAL in ${LIST}
   do
@@ -18,11 +18,14 @@ function get_certs() {
           if [ "$CERT" = "none" ]
           then
             EXPIRATION="N/A"
+            SAN="N/A"
           else
-            EXPIRATION=`tmsh list sys file ssl-cert recursive one-line | grep ${CERT} | grep -oh 'expiration-string .*GMT' | cut -c 20-`
+            CARTSTRING=`tmsh list sys file ssl-cert recursive one-line | grep "ssl-cert ${CERT}"`
+            EXPIRATION=`grep -oh 'expiration-string .*GMT' <<<"$CARTSTRING" | cut -c 20-`
+            SAN=`grep -oP '(?<=subject-alternative-name \").*?(?=\")' <<<"$CARTSTRING"`
           fi
           VIP=`tmsh list ltm virtual ${VAL} | grep destination | awk '{print $2}'`
-          echo "${VAL}${SP}${PCRT}${SP}${CERT}${SP}${CIPHERS}${SP}${VIP}${SP}${EXPIRATION}"
+          echo "${SC}${VAL}${SP}${PCRT}${SP}${CERT}${SP}${CIPHERS}${SP}${VIP}${SP}${EXPIRATION}${SP}${SAN}${SC}"
         }
       done
     }
@@ -32,6 +35,7 @@ function get_certs() {
 
 
 SP=" " #separator character
+SC="" #start/stop character
 while getopts ":hcsx" opt; do
   case $opt in
     h)
@@ -69,7 +73,8 @@ Optional arguments:
       fi
       ;;
     x)
-      SP=","
+      SP="\",\""
+      SC="\""
       ;;
     \? )
       echo "Invalid Option: -$OPTARG" 1>&2
@@ -81,10 +86,10 @@ done
 
 if [ "$SP" = " " ]
 then
-  echo "Virtual:          Profile:        Certificate:          Ciphers:           VIP:          Cartificate Expiration:"
-  echo "________________________________________________________________________________________________________________"
+  echo "Virtual:          Profile:        Certificate:          Ciphers:           VIP:          Cartificate Expiration:       SAN:"
+  echo "_________________________________________________________________________________________________________________________________"
 else
-  echo "Virtual:,Profile:,Certificate:,Ciphers:,VIP:,Cartificate Expiration:"
+  echo "Virtual:,Profile:,Certificate:,Ciphers:,VIP:,Cartificate Expiration:,SAN:"
 fi
 
 VIRTS_COUNT=0
