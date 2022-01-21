@@ -21,11 +21,14 @@ function get_certs() {
             SAN="N/A"
           else
             CARTSTRING=`tmsh list sys file ssl-cert recursive one-line | grep "ssl-cert ${CERT}"`
-            EXPIRATION=`grep -oh 'expiration-string .*GMT' <<<"$CARTSTRING" | cut -c 20-` #Expiration date of certificate
+            EXPIRATION=`grep -oP '(?<=expiration-string \").*GMT' <<<"$CARTSTRING"` #Expiration date of certificate
             SAN=`grep -oP '(?<=subject-alternative-name \").*?(?=\")' <<<"$CARTSTRING"` #Subject Alternative Name of certificate
+            CN=`grep -oP '(?<=subject \"CN=).*?(?=,)' <<<"$CARTSTRING"` #Certificate Common Name
+            CA=`grep -oP '(?<=issuer \"CN=).*?(?=,)' <<<"$CARTSTRING"` #Issuer Common Name (Certificate authority)
+            
           fi
           VIP=`tmsh list ltm virtual ${VAL} | grep destination | awk '{print $2}'`
-          echo "${SC}${VAL}${SP}${PCRT}${SP}${CERT}${SP}${CIPHERS}${SP}${VIP}${SP}${EXPIRATION}${SP}${SAN}${SC}"
+          echo "${SC}${VAL}${SP}${PCRT}${SP}${CERT}${SP}${CIPHERS}${SP}${VIP}${SP}${CA}${SP}${EXPIRATION}${SP}${CN}${SP}${SAN}${SC}"
         }
       done
     }
@@ -89,7 +92,7 @@ then
   echo "Virtual:          Profile:        Certificate:          Ciphers:           VIP:          Cartificate Expiration:       SAN:"
   echo "_________________________________________________________________________________________________________________________________"
 else
-  echo "Virtual:,Profile:,Certificate:,Ciphers:,VIP:,Cartificate Expiration:,SAN:"
+  echo "Virtual:,Profile:,Certificate:,Ciphers:,VIP:,Issuer:,Cartificate Expiration:,CN:,SAN:"
 fi
 
 VIRTS_COUNT=0
