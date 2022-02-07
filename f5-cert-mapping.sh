@@ -231,7 +231,7 @@ Optional arguments:
  -c show client side certificates only
  -s show server side certificates only
  -x generate the output in CSV format
- -f specify file from wich the hosts should be taken (not available when executing from F5)"
+ -f specify file from which the hosts should be taken (not available when executing from F5)"
       exit 0
       ;;
     c)
