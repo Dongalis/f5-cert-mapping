@@ -104,7 +104,7 @@ function get_certs_remote() {
       echo $HOST unreachable >&2;
       continue
     fi
-    echo -e "Connecting to ${HOST}" 1>&2
+    echo -en "Connecting to ${HOST}" 1>&2
     echo $PASS | sshpass ssh -q -o ConnectTimeout=5 ${USR}@${HOST} quit >/dev/null 2> /dev/null
     # $? == 127  - bash
     # $? == 0  - tmsh
@@ -121,8 +121,8 @@ function get_certs_remote() {
       echo $HOST not able to authenticate error code $RET >&2;
       continue
     fi
-
-    echo -e "Starting procesing host ${HOST}" 1>&2
+    echo -en "\r\033[K" 1>&2
+    echo -en "Starting procesing host ${HOST}" 1>&2
     if [ -z ${client+x} ] 
     then
       COMMANDSTRING="client-ssl"
@@ -138,7 +138,7 @@ function get_certs_remote() {
       ${FUNCT}
       #VIRTS_COUNT=`expr $VIRTS_COUNT + $?` #count VIPS
     fi
-    echo -e "Processing ${HOST} finished" 1>&2
+    echo -e "Processing on ${HOST} finished" 1>&2
   done
 }
 
