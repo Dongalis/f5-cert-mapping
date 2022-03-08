@@ -15,7 +15,7 @@ function get_certs_remote_tmsh() {
       #VIRTS_CNT=$(expr $VIRTS_CNT + 1) #count VIPS
       for PCRT in ${PROF}
       do
-        CERT=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} list /ltm profile ${COMMANDSTRING} ${PCRT} |  awk '$1 == "cert" {print $2}' 2> /dev/null | sort -u)
+        CERT=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} list /ltm profile ${COMMANDSTRING} ${PCRT} | awk '$1 == "cert" {print $2}' 2> /dev/null | sed '/^\/\|^none$/!s/^/Common\//' | sed 's/^\///' | sort -u )
         test -n "${CERT}" 2>&- && {
           CIPHERS=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} list /ltm profile ${COMMANDSTRING} ${PCRT} ciphers | grep ciphers | awk '{print $2}')
           if [ "$CERT" = "none" ]
@@ -23,7 +23,7 @@ function get_certs_remote_tmsh() {
             EXPIRATION="N/A"
             SAN="N/A"
           else
-            CARTSTRING=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} list sys file ssl-cert recursive one-line | grep "ssl-cert ${CERT}")
+            CARTSTRING=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} 'cd /; list sys file ssl-cert recursive one-line' | grep "ssl-cert ${CERT}")
             EXPIRATION=`grep -oP '(?<=expiration-string \").*GMT' <<<"$CARTSTRING"` #Expiration date of certificate
             SAN=`grep -oP '(?<=subject-alternative-name \").*?(?=\")' <<<"$CARTSTRING"` #Subject Alternative Name of certificate
             CN=`grep -oP '(?<=subject \"CN=).*?(?=,)' <<<"$CARTSTRING"` #Certificate Common Name
@@ -54,7 +54,7 @@ function get_certs_remote_bash() { #TODO
       #VIRTS_CNT=$(expr $VIRTS_CNT + 1) #count VIPS
       for PCRT in ${PROF}
       do
-        CERT=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} tmsh list /ltm profile ${COMMANDSTRING} ${PCRT} |  awk '$1 == "cert" {print $2}' 2> /dev/null | sort -u)
+        CERT=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} tmsh list /ltm profile ${COMMANDSTRING} ${PCRT} |  awk '$1 == "cert" {print $2}' 2> /dev/null | sed '/^\/\|^none$/!s/^/Common\//' | sed 's/^\///' | sort -u)
         test -n "${CERT}" 2>&- && {
           CIPHERS=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} tmsh list /ltm profile ${COMMANDSTRING} ${PCRT} ciphers | grep ciphers | awk '{print $2}')
           if [ "$CERT" = "none" ]
@@ -62,7 +62,7 @@ function get_certs_remote_bash() { #TODO
             EXPIRATION="N/A"
             SAN="N/A"
           else
-            CARTSTRING=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} tmsh list sys file ssl-cert recursive one-line | grep "ssl-cert ${CERT}")
+            CARTSTRING=$(echo ${PASS} | sshpass ssh -q -o ConnectTimeout=50 ${USR}@${HOST} tmsh -q -c "\"cd /; list sys file ssl-cert recursive one-line\"" | grep "ssl-cert ${CERT}")
             EXPIRATION=`grep -oP '(?<=expiration-string \").*GMT' <<<"$CARTSTRING"` #Expiration date of certificate
             SAN=`grep -oP '(?<=subject-alternative-name \").*?(?=\")' <<<"$CARTSTRING"` #Subject Alternative Name of certificate
             CN=`grep -oP '(?<=subject \"CN=).*?(?=,)' <<<"$CARTSTRING"` #Certificate Common Name
@@ -104,7 +104,7 @@ function get_certs_remote() {
       echo $HOST unreachable >&2;
       continue
     fi
-
+    echo -e "Connecting to ${HOST}" 1>&2
     echo $PASS | sshpass ssh -q -o ConnectTimeout=5 ${USR}@${HOST} quit >/dev/null 2> /dev/null
     # $? == 127  - bash
     # $? == 0  - tmsh
@@ -122,6 +122,7 @@ function get_certs_remote() {
       continue
     fi
 
+    echo -e "Starting procesing host ${HOST}" 1>&2
     if [ -z ${client+x} ] 
     then
       COMMANDSTRING="client-ssl"
@@ -137,9 +138,12 @@ function get_certs_remote() {
       ${FUNCT}
       #VIRTS_COUNT=`expr $VIRTS_COUNT + $?` #count VIPS
     fi
-
+    echo -e "Processing ${HOST} finished" 1>&2
   done
 }
+
+##TODO
+# replace `` with $()
 
 function get_certs_local() { #not used for remote connections
   LIST=`find /config -name bigip.conf -type f |  xargs  awk '$2 == "virtual" {print $3}' 2> /dev/null | sort -u`
@@ -153,7 +157,7 @@ function get_certs_local() { #not used for remote connections
       #VIRTS_CNT=`expr $VIRTS_CNT + 1` #count VIPS
       for PCRT in ${PROF}
       do
-        CERT=`tmsh list /ltm profile ${COMMANDSTRING} ${PCRT} |  awk '$1 == "cert" {print $2}' 2> /dev/null | sort -u`
+        CERT=`tmsh list /ltm profile ${COMMANDSTRING} ${PCRT} |  awk '$1 == "cert" {print $2}' 2> /dev/null | sed '/^\/\|^none$/!s/^/Common\//' | sed 's/^\///' | sort -u`
         test -n "${CERT}" 2>&- && {
           CIPHERS=`tmsh list /ltm profile ${COMMANDSTRING} ${PCRT} ciphers | grep ciphers | awk '{print $2}'`
           if [ "$CERT" = "none" ]
@@ -163,7 +167,7 @@ function get_certs_local() { #not used for remote connections
             CN="N/A"
             CA="N/A"
           else
-            CARTSTRING=`tmsh list sys file ssl-cert recursive one-line | grep "ssl-cert ${CERT}"`
+            CARTSTRING=`tmsh -q -c 'cd /; list sys file ssl-cert recursive one-line' | grep "ssl-cert ${CERT}"`
             EXPIRATION=`grep -oP '(?<=expiration-string \").*GMT' <<<"$CARTSTRING"` #Expiration date of certificate
             SAN=`grep -oP '(?<=subject-alternative-name \").*?(?=\")' <<<"$CARTSTRING"` #Subject Alternative Name of certificate
             CN=`grep -oP '(?<=subject \"CN=).*?(?=,)' <<<"$CARTSTRING"` #Certificate Common Name
@@ -231,7 +235,7 @@ Optional arguments:
  -c show client side certificates only
  -s show server side certificates only
  -x generate the output in CSV format
- -f specify file from which the hosts should be taken (not available when executing from F5)"
+ -f specify file from wich the hosts should be taken (not available when executing from F5)"
       exit 0
       ;;
     c)
